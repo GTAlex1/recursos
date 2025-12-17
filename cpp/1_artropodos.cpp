@@ -1,3 +1,4 @@
+// Artrópodos https://aceptaelreto.com/problem/statement.php?id=293
 #include <iostream>
 using namespace std;
 
