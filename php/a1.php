@@ -9,8 +9,20 @@ resultado con los números y la operación realizada. -->
                 return = "$n1 + $n2";
                 break;
             
+            case 'resta':
+                return = "$n1 - $n2";
+                break;
+            
+            case 'multiplicacion':
+                return = "$n1 * $n2";
+                break;
+            
+            case 'division':
+                return = $n2 == 0 ? "No se puede dividir entre 0" : $n1 / $n2 ;
+                break;
+
             default:
-                # code...
+                return = "Operación no válida"
                 break;
         }
 ?>
@@ -33,7 +45,10 @@ resultado con los números y la operación realizada. -->
         </select>
     </form>
     <?php
-        $resultado = operacion($_POST['n1'], $_POST['n2'], $_POST['op'])
+        $resultado = operacion($_POST['n1'], $_POST['n2'], $_POST['op']);
+        echo "El número 1 es $n1, el número 2 es $n2";
+        echo "La operación elegida fue $op";
+        echo "El resultado es $resultado";
     ?>
 </body>
 </html>
