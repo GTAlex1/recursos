@@ -3,8 +3,16 @@ División). Usar la función ‘operación’ para realizar la operación selecc
 resultado con los números y la operación realizada. -->
 
 <?php 
-    function operacion($n1, $n2, "op")
-        
+    function operacion($n1, $n2, $op)
+        switch ($op) {
+            case 'suma':
+                return = "$n1 + $n2";
+                break;
+            
+            default:
+                # code...
+                break;
+        }
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -25,6 +33,7 @@ resultado con los números y la operación realizada. -->
         </select>
     </form>
     <?php
+        $resultado = operacion($_POST['n1'], $_POST['n2'], $_POST['op'])
     ?>
 </body>
 </html>
