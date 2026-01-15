@@ -3,7 +3,7 @@ División). Usar la función ‘operación’ para realizar la operación selecc
 resultado con los números y la operación realizada. -->
 
 <?php 
-    function operacion($n1, $n2, $op)
+    function operacion($n1, $n2, $op){
         switch ($op) {
             case 'suma':
                 return = "$n1 + $n2";
@@ -22,9 +22,10 @@ resultado con los números y la operación realizada. -->
                 break;
 
             default:
-                return = "Operación no válida"
+                return = "Operación no válida";
                 break;
         }
+    }
 ?>
 <!DOCTYPE html>
 <html lang="es">
