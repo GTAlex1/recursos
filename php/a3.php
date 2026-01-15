@@ -21,7 +21,7 @@ o igual a 5) o poner “Suspenso” (si menor a 5). Usar un único archivo PHP -
         echo "<form method="post">"
       for ($i=1; $i <=$_POST['nc'] ; $i++) { 
         echo "<p>Ingresa la nota $i<input type="number" name="n$i" required></p>";
-        $acumulador += $_POST["n$1"];
+        $acumulador += $_POST["n$i"];
         divisor +=1;
       }
         echo "<button type="submit" name="enviar2">Enviar</button>";
