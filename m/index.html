@@ -128,7 +128,7 @@ let globalIndex = 0;
 async function initCatalog() {
     try {
         // Carga estática local (0 peticiones consumidas de la API de GitHub)
-        const response = await fetch('./m/skins.json');
+        const response = await fetch('/recursos/m/skins.json');
         if (!response.ok) throw new Error('No se pudo encontrar el archivo skins.json');
         
         const allSkins = await response.json();
