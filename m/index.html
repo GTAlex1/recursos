@@ -168,55 +168,88 @@
         }
 
         function createCategorySection(categoryName, imageFiles, folderPath) {
-            // Título de la sección
-            const title = document.createElement('h2');
-            title.className = 'category-title';
-            title.textContent = categoryName;
-            catalogContainer.appendChild(title);
+    const title = document.createElement('h2');
+    title.className = 'category-title';
+    title.textContent = categoryName;
+    catalogContainer.appendChild(title);
 
-            // Grid de la sección
-            const grid = document.createElement('div');
-            grid.className = 'skins-grid';
-            catalogContainer.appendChild(grid);
+    const grid = document.createElement('div');
+    grid.className = 'skins-grid';
+    catalogContainer.appendChild(grid);
 
-            // Generar tarjetas para la categoría
-            imageFiles.forEach(file => {
-                globalIndex++;
-                const skinName = file.name.replace('.png', '').replace(/[-_]/g, ' ');
-                
-                // Construye la ruta relativa local y la URL pública completa
-                const relativeUrl = `${folderPath.replace(BASE_FOLDER + '/', '')}/${file.name}`.replace(`${BASE_FOLDER}/`, '');
-                const absoluteUrl = `https://${USERNAME}.github.io/${REPO}/${folderPath}/${file.name}`;
-                const canvasId = `skin_canvas_${globalIndex}`;
+    imageFiles.forEach(file => {
+        globalIndex++;
+        const skinName = file.name.replace(/\.png$/i, '').replace(/[-_]/g, ' ');
+        const rawUrl = file.download_url;
+        const canvasId = `skin_canvas_${globalIndex}`;
+        const selectId = `cmd_type_${globalIndex}`;
 
-                const card = document.createElement('div');
-                card.className = 'skin-card';
-                card.innerHTML = `
-                    <h3>${skinName}</h3>
-                    <div class="canvas-container">
-                        <canvas id="${canvasId}"></canvas>
-                    </div>
-                    <div class="btn-group">
-                        <button class="btn" onclick="copyToClipboard('${absoluteUrl}', this)">Copiar URL</button>
-                        <a class="btn btn-secondary" href="${relativeUrl}" download="${file.name}">Descargar</a>
-                    </div>
-                `;
-                grid.appendChild(card);
+        // Detectar si la skin está en subcarpeta Slim o Classic según la ruta
+        const isSlim = file.path.toLowerCase().includes('slim') || file.path.toLowerCase().includes('alex');
+        const modelType = isSlim ? 'slim' : 'classic';
 
-                // Inicializar visor 3D
-                const viewer = new skinview3d.SkinViewer({
-                    canvas: document.getElementById(canvasId),
-                    width: 180,
-                    height: 220,
-                    skin: relativeUrl
-                });
+        const card = document.createElement('div');
+        card.className = 'skin-card';
+        card.innerHTML = `
+            <h3>${skinName} <span style="font-size: 0.7rem; opacity: 0.6;">(${modelType})</span></h3>
+            <div class="canvas-container">
+                <canvas id="${canvasId}"></canvas>
+            </div>
+            
+            <!-- Selector de formato de comando -->
+            <select id="${selectId}" class="btn" style="margin-bottom: 0.5rem; text-align: center;">
+                <option value="plugin">Plugin (/skin url)</option>
+                <option value="mod">Mod (/skin set web)</option>
+                <option value="raw">Solo URL del PNG</option>
+            </select>
 
-                viewer.animation = new skinview3d.WalkingAnimation();
-                viewer.animation.speed = 0.5;
-                viewer.autoRotate = true;
-                viewer.autoRotateSpeed = 0.8;
+            <div class="btn-group">
+                <button class="btn" onclick="copyCustomCommand('${rawUrl}', '${selectId}', '${modelType}', this)">Copiar Comando</button>
+                <a class="btn btn-secondary" href="${rawUrl}" download="${file.name}">Descargar</a>
+            </div>
+        `;
+        grid.appendChild(card);
+
+        // Inicializar visor 3D indicando el modelo (slim / classic)
+        try {
+            const viewer = new skinview3d.SkinViewer({
+                canvas: document.getElementById(canvasId),
+                width: 180,
+                height: 220,
+                skin: rawUrl,
+                model: modelType
             });
+            viewer.animation = new skinview3d.WalkingAnimation();
+            viewer.animation.speed = 0.5;
+            viewer.autoRotate = true;
+        } catch (e) {
+            console.error(e);
         }
+    });
+}
+
+// Función de copiado con la sintaxis del comando
+function copyCustomCommand(url, selectId, modelType, btnElement) {
+    const mode = document.getElementById(selectId).value;
+    let textToCopy = url;
+
+    if (mode === 'plugin') {
+        textToCopy = `/skin url ${url}`;
+    } else if (mode === 'mod') {
+        textToCopy = `/skin set web ${modelType} "${url}"`;
+    }
+
+    navigator.clipboard.writeText(textToCopy).then(() => {
+        const originalText = btnElement.textContent;
+        btnElement.textContent = '¡Comando copiado!';
+        btnElement.style.background = 'var(--accent-amber, #ff9900)';
+        
+        setTimeout(() => {
+            btnElement.textContent = originalText;
+            btnElement.style.background = '';
+        }, 1800);
+    });
+}
 
         function copyToClipboard(url, btnElement) {
             navigator.clipboard.writeText(url).then(() => {
