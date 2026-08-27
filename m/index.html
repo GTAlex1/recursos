@@ -143,29 +143,33 @@ async function initCatalog() {
             return;
         }
 
-        const categories = {};
+        // Estructura anidada: { "Animes": { "Haikyuu!": [...], "Pokemon": [...] } }
+        const tree = {};
 
         allSkins.forEach(file => {
             const relativePath = file.path.replace(`${BASE_FOLDER}/`, '');
             const parts = relativePath.split('/');
             
-            // Si la ruta tiene subcarpetas (ej: Animes/Pokemon/Chico/skin.png),
-            // la categoría será "Animes - Pokemon" o el nombre de la serie/juego.
-            let categoryName = 'General';
-            if (parts.length > 2) {
-                categoryName = `${parts[0]} - ${parts[1]}`;
-            } else if (parts.length > 1) {
-                categoryName = parts[0];
-            }
+            const mainCat = parts.length > 1 ? parts[0] : 'General';
+            const subCat = parts.length > 2 ? parts[1] : 'Variados';
 
-            if (!categories[categoryName]) {
-                categories[categoryName] = [];
-            }
-            categories[categoryName].push(file);
+            if (!tree[mainCat]) tree[mainCat] = {};
+            if (!tree[mainCat][subCat]) tree[mainCat][subCat] = [];
+
+            tree[mainCat][subCat].push(file);
         });
 
-        for (const [categoryName, files] of Object.entries(categories)) {
-            renderCategoryGroup(categoryName, files);
+        // Renderizado jerárquico
+        for (const [mainCat, subCats] of Object.entries(tree)) {
+            const mainTitle = document.createElement('h1');
+            mainTitle.className = 'main-category-title';
+            mainTitle.style.cssText = 'font-size: 2rem; color: #fff; margin-top: 2rem; border-bottom: 2px solid var(--accent-amber, #ff9900); padding-bottom: 0.3rem;';
+            mainTitle.textContent = mainCat;
+            catalogContainer.appendChild(mainTitle);
+
+            for (const [subCat, files] of Object.entries(subCats)) {
+                renderSubCategoryGroup(subCat, files);
+            }
         }
 
         setupIntersectionObserver();
@@ -179,11 +183,12 @@ async function initCatalog() {
     }
 }
 
-function renderCategoryGroup(categoryName, imageFiles) {
-    const mainTitle = document.createElement('h2');
-    mainTitle.className = 'category-title';
-    mainTitle.textContent = categoryName;
-    catalogContainer.appendChild(mainTitle);
+function renderSubCategoryGroup(subCategoryName, imageFiles) {
+    const subTitle = document.createElement('h3');
+    subTitle.className = 'sub-category-title';
+    subTitle.style.cssText = 'font-size: 1.3rem; color: var(--accent-amber, #ff9900); margin: 1.5rem 0 0.8rem 0.5rem;';
+    subTitle.textContent = subCategoryName;
+    catalogContainer.appendChild(subTitle);
 
     const grid = document.createElement('div');
     grid.className = 'skins-grid';
@@ -197,7 +202,6 @@ function renderCategoryGroup(categoryName, imageFiles) {
         const skinName = fileName.replace(/\.png$/i, '').replace(/[-_]/g, ' ');
 
         const safePath = file.path.split('/').map(segment => encodeURIComponent(segment)).join('/');
-        
         const rawUrl = `https://raw.githubusercontent.com/${USERNAME}/${REPO}/main/${safePath}`;
         const publicUrl = `https://${USERNAME}.github.io/${REPO}/${safePath}`;
 
@@ -206,33 +210,59 @@ function renderCategoryGroup(categoryName, imageFiles) {
         const modelType = isSlim ? 'slim' : 'classic';
 
         const containerId = `container_${globalIndex}`;
-        const selectId = `cmd_type_${globalIndex}`;
-        const btnId = `copy_btn_${globalIndex}`;
+        const dropdownId = `dropdown_${globalIndex}`;
 
         const card = document.createElement('div');
         card.className = 'skin-card';
         card.innerHTML = `
             <h3>${skinName}</h3>
-            <span style="font-size: 0.75rem; color: var(--accent-amber, #ff9900); margin-top: -0.4rem; margin-bottom: 0.5rem;">(${modelType})</span>
+            <span style="font-size: 0.75rem; color: #888; margin-top: -0.4rem; margin-bottom: 0.5rem;">(${modelType})</span>
             
-            <div class="canvas-container" id="${containerId}" data-skin-url="${rawUrl}" data-model="${modelType}">
-                <!-- Canvas generado dinámicamente -->
-            </div>
+            <div class="canvas-container" id="${containerId}" data-skin-url="${rawUrl}" data-model="${modelType}"></div>
             
-            <select id="${selectId}" class="btn" style="margin-bottom: 0.5rem; text-align: center;" onchange="updateButtonLabel('${selectId}', '${btnId}')">
-                <option value="plugin">Plugin (/skin url)</option>
-                <option value="mod">Mod (/skin set web)</option>
-                <option value="raw">Solo URL de la imagen</option>
-            </select>
-
-            <div class="btn-group">
-                <button id="${btnId}" class="btn" onclick="copyCustomCommand('${publicUrl}', '${selectId}', '${modelType}', this)">Copiar Comando</button>
+            <div class="btn-group" style="position: relative; margin-top: 0.5rem;">
+                <button class="btn" onclick="toggleDropdown('${dropdownId}', event)">Copiar ▼</button>
                 <a class="btn btn-secondary" href="${rawUrl}" download="${fileName}">Descargar</a>
+
+                <div id="${dropdownId}" class="copy-dropdown" style="display: none; position: absolute; bottom: 110%; left: 0; width: 100%; background: #1e1e1e; border: 1px solid #444; border-radius: 6px; z-index: 100; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
+                    <button style="display: block; width: 100%; padding: 8px; background: none; border: none; color: #fff; text-align: left; cursor: pointer;" onclick="copyAndClose('/skin url ${publicUrl}', this)">Plugin (/skin url)</button>
+                    <button style="display: block; width: 100%; padding: 8px; background: none; border: none; color: #fff; text-align: left; cursor: pointer;" onclick="copyAndClose('/skin set web ${modelType} &quot;${publicUrl}&quot;', this)">Mod (/skin set web)</button>
+                    <button style="display: block; width: 100%; padding: 8px; background: none; border: none; color: #fff; text-align: left; cursor: pointer;" onclick="copyAndClose('${publicUrl}', this)">Solo URL</button>
+                </div>
             </div>
         `;
         grid.appendChild(card);
     });
 }
+
+function toggleDropdown(dropdownId, event) {
+    event.stopPropagation();
+    document.querySelectorAll('.copy-dropdown').forEach(d => {
+        if (d.id !== dropdownId) d.style.display = 'none';
+    });
+
+    const dropdown = document.getElementById(dropdownId);
+    dropdown.style.display = (dropdown.style.display === 'block') ? 'none' : 'block';
+}
+
+function copyAndClose(text, optionBtn) {
+    navigator.clipboard.writeText(text).then(() => {
+        const originalText = optionBtn.textContent;
+        optionBtn.textContent = '¡Copiado!';
+        optionBtn.style.color = 'var(--accent-amber, #ff9900)';
+
+        setTimeout(() => {
+            optionBtn.textContent = originalText;
+            optionBtn.style.color = '#fff';
+            optionBtn.parentElement.style.display = 'none';
+        }, 800);
+    });
+}
+
+// Cierre automático al hacer clic fuera
+document.addEventListener('click', () => {
+    document.querySelectorAll('.copy-dropdown').forEach(d => d.style.display = 'none');
+});
 
 function setupIntersectionObserver() {
     const observer = new IntersectionObserver((entries) => {
@@ -245,7 +275,6 @@ function setupIntersectionObserver() {
             if (entry.isIntersecting) {
                 if (!activeViewers.has(containerId)) {
                     try {
-                        // Recrear canvas limpio para evitar fallos de renderizado al reentrar
                         container.innerHTML = '';
                         const canvas = document.createElement('canvas');
                         container.appendChild(canvas);
@@ -264,7 +293,7 @@ function setupIntersectionObserver() {
                         
                         activeViewers.set(containerId, viewer);
                     } catch (e) {
-                        console.error("Error al renderizar skin 3D:", containerId, e);
+                        console.error("Error WebGL:", containerId, e);
                     }
                 }
             } else {
@@ -272,44 +301,13 @@ function setupIntersectionObserver() {
                     const viewer = activeViewers.get(containerId);
                     viewer.dispose();
                     activeViewers.delete(containerId);
-                    container.innerHTML = ''; // Limpiar el DOM al salir de pantalla
+                    container.innerHTML = '';
                 }
             }
         });
     }, { rootMargin: '150px 0px' });
 
     document.querySelectorAll('.canvas-container').forEach(el => observer.observe(el));
-}
-
-function updateButtonLabel(selectId, btnId) {
-    const mode = document.getElementById(selectId).value;
-    const btn = document.getElementById(btnId);
-    btn.textContent = (mode === 'raw') ? 'Copiar URL' : 'Copiar Comando';
-}
-
-function copyCustomCommand(url, selectId, modelType, btnElement) {
-    const mode = document.getElementById(selectId).value;
-    let textToCopy = url;
-    let successMessage = '¡URL copiada!';
-
-    if (mode === 'plugin') {
-        textToCopy = `/skin url ${url}`;
-        successMessage = '¡Comando copiado!';
-    } else if (mode === 'mod') {
-        textToCopy = `/skin set web ${modelType} "${url}"`;
-        successMessage = '¡Comando copiado!';
-    }
-
-    navigator.clipboard.writeText(textToCopy).then(() => {
-        const originalText = btnElement.textContent;
-        btnElement.textContent = successMessage;
-        btnElement.style.background = 'var(--accent-amber, #ff9900)';
-        
-        setTimeout(() => {
-            btnElement.textContent = originalText;
-            btnElement.style.background = '';
-        }, 1800);
-    });
 }
 
 initCatalog();
