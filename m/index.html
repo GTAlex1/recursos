@@ -124,12 +124,12 @@ const catalogContainer = document.getElementById('catalog-container');
 const loading = document.getElementById('loading');
 
 let globalIndex = 0;
+const activeViewers = new Map(); // Para gestionar y reciclar contextos WebGL
 
 async function initCatalog() {
     try {
-        // Carga estática local (0 peticiones consumidas de la API de GitHub)
         const response = await fetch('/recursos/m/skins.json');
-        if (!response.ok) throw new Error('No se pudo encontrar el archivo skins.json');
+        if (!response.ok) throw new Error('No se pudo encontrar m/skins.json');
         
         const allSkins = await response.json();
 
@@ -137,13 +137,12 @@ async function initCatalog() {
 
         if (!allSkins || allSkins.length === 0) {
             if (loading) {
-                loading.textContent = 'No hay skins registradas en el catálogo.';
+                loading.textContent = 'No hay skins registradas.';
                 loading.style.display = 'block';
             }
             return;
         }
 
-        // Agrupar por Gran Categoría (primer nivel tras "m/", ej: Animes, Juegos)
         const categories = {};
 
         allSkins.forEach(file => {
@@ -157,15 +156,17 @@ async function initCatalog() {
             categories[mainCategory].push(file);
         });
 
-        // Renderizar secciones
         for (const [categoryName, files] of Object.entries(categories)) {
             renderCategoryGroup(categoryName, files);
         }
 
+        // Configurar el Observer para cargar 3D solo cuando la skin es visible
+        setupIntersectionObserver();
+
     } catch (error) {
         console.error(error);
         if (loading) {
-            loading.textContent = 'Error al cargar el catálogo de skins. Asegúrate de que skins.json existe.';
+            loading.textContent = 'Error al cargar el catálogo de skins.';
             loading.style.display = 'block';
         }
     }
@@ -188,14 +189,14 @@ function renderCategoryGroup(categoryName, imageFiles) {
         const fileName = file.name || pathParts[pathParts.length - 1];
         const skinName = fileName.replace(/\.png$/i, '').replace(/[-_]/g, ' ');
 
-        // Determinar obra/juego si existe subcarpeta
         const subCat = pathParts.length > 3 ? pathParts[pathParts.length - 3] : (pathParts.length > 2 ? pathParts[1] : '');
 
-        // URLs públicas estáticas
-        const rawUrl = `https://raw.githubusercontent.com/${USERNAME}/${REPO}/main/${file.path}`;
-        const publicUrl = `https://${USERNAME}.github.io/${REPO}/${file.path}`;
+        // Encodeamos los componentes del Path para soportar caracteres como '!' o espacios
+        const safePath = file.path.split('/').map(segment => encodeURIComponent(segment)).join('/');
+        
+        const rawUrl = `https://raw.githubusercontent.com/${USERNAME}/${REPO}/main/${safePath}`;
+        const publicUrl = `https://${USERNAME}.github.io/${REPO}/${safePath}`;
 
-        // Detección de Modelo (Slim para Chica/Alex, Classic para Chico/Steve)
         const pathLower = file.path.toLowerCase();
         const isSlim = pathLower.includes('chica') || pathLower.includes('slim') || pathLower.includes('alex');
         const modelType = isSlim ? 'slim' : 'classic';
@@ -208,9 +209,9 @@ function renderCategoryGroup(categoryName, imageFiles) {
         card.className = 'skin-card';
         card.innerHTML = `
             <h3>${skinName}</h3>
-            ${subCat ? `<span style="font-size: 0.75rem; color: var(--accent-amber); margin-top: -0.4rem; margin-bottom: 0.5rem;">${subCat} (${modelType})</span>` : ''}
+            ${subCat ? `<span style="font-size: 0.75rem; color: var(--accent-amber, #ff9900); margin-top: -0.4rem; margin-bottom: 0.5rem;">${subCat} (${modelType})</span>` : ''}
             
-            <div class="canvas-container">
+            <div class="canvas-container" data-skin-url="${rawUrl}" data-model="${modelType}" data-canvas-id="${canvasId}">
                 <canvas id="${canvasId}"></canvas>
             </div>
             
@@ -226,39 +227,59 @@ function renderCategoryGroup(categoryName, imageFiles) {
             </div>
         `;
         grid.appendChild(card);
-
-        // Renderizado 3D de la skin
-        try {
-            const viewer = new skinview3d.SkinViewer({
-                canvas: document.getElementById(canvasId),
-                width: 180,
-                height: 220,
-                skin: rawUrl,
-                model: modelType
-            });
-            viewer.animation = new skinview3d.WalkingAnimation();
-            viewer.animation.speed = 0.5;
-            viewer.autoRotate = true;
-            viewer.autoRotateSpeed = 0.8;
-        } catch (e) {
-            console.error("Error al renderizar skin 3D:", file.path, e);
-        }
     });
 }
 
-// Cambiar etiqueta del botón entre "Copiar Comando" y "Copiar URL" según la opción seleccionada
+// Carga perezosa (Lazy Loading) de WebGL para evitar 'Context Lost'
+function setupIntersectionObserver() {
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            const container = entry.target;
+            const canvasId = container.dataset.canvasId;
+            const skinUrl = container.dataset.skinUrl;
+            const modelType = container.dataset.model;
+
+            if (entry.isIntersecting) {
+                // Si la carta entra en pantalla y no tiene visor, crearlo
+                if (!activeViewers.has(canvasId)) {
+                    try {
+                        const viewer = new skinview3d.SkinViewer({
+                            canvas: document.getElementById(canvasId),
+                            width: 180,
+                            height: 220,
+                            skin: skinUrl,
+                            model: modelType
+                        });
+                        viewer.animation = new skinview3d.WalkingAnimation();
+                        viewer.animation.speed = 0.5;
+                        viewer.autoRotate = true;
+                        viewer.autoRotateSpeed = 0.8;
+                        
+                        activeViewers.set(canvasId, viewer);
+                    } catch (e) {
+                        console.error("Error al renderizar skin 3D:", canvasId, e);
+                    }
+                }
+            } else {
+                // Si la carta sale de pantalla, destruir el visor para liberar memoria WebGL
+                if (activeViewers.has(canvasId)) {
+                    const viewer = activeViewers.get(canvasId);
+                    viewer.dispose();
+                    activeViewers.delete(canvasId);
+                }
+            }
+        });
+    }, { rootMargin: '100px 0px' });
+
+    document.querySelectorAll('.canvas-container').forEach(el => observer.observe(el));
+}
+
 function updateButtonLabel(selectId, btnId) {
     const mode = document.getElementById(selectId).value;
     const btn = document.getElementById(btnId);
-    
-    if (mode === 'raw') {
-        btn.textContent = 'Copiar URL';
-    } else {
-        btn.textContent = 'Copiar Comando';
-    }
+    btn.textContent = (mode === 'raw') ? 'Copiar URL' : 'Copiar Comando';
 }
 
-// Lógica de copiado con feedback visual
 function copyCustomCommand(url, selectId, modelType, btnElement) {
     const mode = document.getElementById(selectId).value;
     let textToCopy = url;
@@ -284,7 +305,6 @@ function copyCustomCommand(url, selectId, modelType, btnElement) {
     });
 }
 
-// Inicializar catálogo
 initCatalog();
     </script>
 </body>
