@@ -4,17 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Skins Repo - Kazus</title>
-    <!-- Carga la hoja de estilo usando la ruta relativa o absoluta -->
     <link rel="stylesheet" href="../../style.css">
     <script src="https://bs-community.github.io/skinview3d/js/skinview3d.bundle.js"></script>
     <style>
+        .category-title {
+            font-size: 1.4rem;
+            color: var(--accent-amber, #ff9900);
+            border-bottom: 2px solid var(--card-border, rgba(255, 100, 0, 0.2));
+            padding-bottom: 0.4rem;
+            margin: 2.5rem 0 1rem 0;
+            text-align: left;
+            width: 100%;
+            max-width: 1100px;
+            text-transform: capitalize;
+            text-shadow: 0 0 10px rgba(255, 153, 0, 0.3);
+        }
+
         .skins-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
             gap: 1.5rem;
             width: 100%;
             max-width: 1100px;
-            margin-top: 1rem;
+            margin-bottom: 1.5rem;
         }
 
         .skin-card {
@@ -95,10 +107,9 @@
     <header>
         <h1>Catálogo de Skins</h1>
     </header>
-    <h2>Minecraft Repository</h2>
 
-    <div id="loading">Cargando skins...</div>
-    <div id="skins-container" class="skins-grid"></div>
+    <div id="loading">Cargando categorías y skins...</div>
+    <div id="catalog-container"></div>
 
     <footer>
         <p>Hecho por <strong>Kazus Suzak</strong> &copy;</p>
@@ -106,73 +117,105 @@
 
     <script>
         const USERNAME = 'gtalex1';
-        const REPO = 'recursos'; // Tu repositorio de recursos
-        const FOLDER_PATH = 'm';  // Carpeta 'm' dentro del repositorio
+        const REPO = 'recursos';
+        const BASE_FOLDER = 'm';
 
-        const container = document.getElementById('skins-container');
+        const catalogContainer = document.getElementById('catalog-container');
         const loading = document.getElementById('loading');
 
-        async function fetchSkins() {
-            try {
-                // Petición a la API de GitHub apuntando directamente a la carpeta m
-                const response = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${FOLDER_PATH}`);
-                
-                if (!response.ok) throw new Error('No se pudo acceder a las skins');
+        let globalIndex = 0; // Para dar un ID único a cada canvas
 
-                const files = await response.json();
+        async function fetchDirectory(path) {
+            const response = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${path}`);
+            if (!response.ok) return [];
+            return await response.json();
+        }
+
+        async function initCatalog() {
+            try {
+                const rootContents = await fetchDirectory(BASE_FOLDER);
                 loading.style.display = 'none';
 
-                // Filtra solo los archivos .png que están en la misma carpeta
-                const skinFiles = files.filter(file => file.name.endsWith('.png'));
-
-                if (skinFiles.length === 0) {
-                    loading.textContent = 'No se encontraron skins PNG en esta carpeta.';
+                if (rootContents.length === 0) {
+                    loading.textContent = 'No se encontraron archivos en la carpeta.';
                     loading.style.display = 'block';
                     return;
                 }
 
-                skinFiles.forEach((file, index) => {
-                    const skinName = file.name.replace('.png', '').replace(/[-_]/g, ' ');
-                    
-                    // Al estar en la misma carpeta, la URL relativa es simplemente el nombre de la imagen
-                    const relativeUrl = file.name; 
-                    // URL completa para el botón de copiar
-                    const absoluteUrl = `https://${USERNAME}.github.io/${REPO}/${FOLDER_PATH}/${file.name}`;
-                    
-                    const canvasId = `skin_canvas_${index}`;
+                // Separa los elementos en carpetas (categorías) e imágenes sueltas
+                const directories = rootContents.filter(item => item.type === 'dir');
+                const rootImages = rootContents.filter(item => item.type === 'file' && item.name.endsWith('.png'));
 
-                    const card = document.createElement('div');
-                    card.className = 'skin-card';
-                    card.innerHTML = `
-                        <h3>${skinName}</h3>
-                        <div class="canvas-container">
-                            <canvas id="${canvasId}"></canvas>
-                        </div>
-                        <div class="btn-group">
-                            <button class="btn" onclick="copyToClipboard('${absoluteUrl}', this)">Copiar URL</button>
-                            <a class="btn btn-secondary" href="${relativeUrl}" download="${file.name}">Descargar</a>
-                        </div>
-                    `;
-                    container.appendChild(card);
+                // 1. Procesar carpetas como Secciones
+                for (const dir of directories) {
+                    const dirContents = await fetchDirectory(dir.path);
+                    const images = dirContents.filter(item => item.name.endsWith('.png'));
 
-                    // Carga el visor 3D pasándole la imagen de la misma carpeta
-                    const viewer = new skinview3d.SkinViewer({
-                        canvas: document.getElementById(canvasId),
-                        width: 180,
-                        height: 220,
-                        skin: relativeUrl
-                    });
+                    if (images.length > 0) {
+                        createCategorySection(dir.name, images, dir.path);
+                    }
+                }
 
-                    viewer.animation = new skinview3d.WalkingAnimation();
-                    viewer.animation.speed = 0.5;
-                    viewer.autoRotate = true;
-                    viewer.autoRotateSpeed = 0.8;
-                });
+                // 2. Si hay imágenes sueltas en la raíz, ponerlas al final bajo "Otros / General"
+                if (rootImages.length > 0) {
+                    createCategorySection('General', rootImages, BASE_FOLDER);
+                }
 
             } catch (error) {
                 console.error(error);
-                loading.textContent = 'Error al cargar las skins.';
+                loading.textContent = 'Error al cargar el catálogo de skins.';
             }
+        }
+
+        function createCategorySection(categoryName, imageFiles, folderPath) {
+            // Título de la sección
+            const title = document.createElement('h2');
+            title.className = 'category-title';
+            title.textContent = categoryName;
+            catalogContainer.appendChild(title);
+
+            // Grid de la sección
+            const grid = document.createElement('div');
+            grid.className = 'skins-grid';
+            catalogContainer.appendChild(grid);
+
+            // Generar tarjetas para la categoría
+            imageFiles.forEach(file => {
+                globalIndex++;
+                const skinName = file.name.replace('.png', '').replace(/[-_]/g, ' ');
+                
+                // Construye la ruta relativa local y la URL pública completa
+                const relativeUrl = `${folderPath.replace(BASE_FOLDER + '/', '')}/${file.name}`.replace(`${BASE_FOLDER}/`, '');
+                const absoluteUrl = `https://${USERNAME}.github.io/${REPO}/${folderPath}/${file.name}`;
+                const canvasId = `skin_canvas_${globalIndex}`;
+
+                const card = document.createElement('div');
+                card.className = 'skin-card';
+                card.innerHTML = `
+                    <h3>${skinName}</h3>
+                    <div class="canvas-container">
+                        <canvas id="${canvasId}"></canvas>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn" onclick="copyToClipboard('${absoluteUrl}', this)">Copiar URL</button>
+                        <a class="btn btn-secondary" href="${relativeUrl}" download="${file.name}">Descargar</a>
+                    </div>
+                `;
+                grid.appendChild(card);
+
+                // Inicializar visor 3D
+                const viewer = new skinview3d.SkinViewer({
+                    canvas: document.getElementById(canvasId),
+                    width: 180,
+                    height: 220,
+                    skin: relativeUrl
+                });
+
+                viewer.animation = new skinview3d.WalkingAnimation();
+                viewer.animation.speed = 0.5;
+                viewer.autoRotate = true;
+                viewer.autoRotateSpeed = 0.8;
+            });
         }
 
         function copyToClipboard(url, btnElement) {
@@ -188,7 +231,7 @@
             });
         }
 
-        fetchSkins();
+        initCatalog();
     </script>
 </body>
 </html>
