@@ -125,60 +125,70 @@ const loading = document.getElementById('loading');
 
 let globalIndex = 0;
 
-// Función para consultar la API de GitHub
-async function fetchDirectory(path) {
-    try {
-        const response = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${path}`);
-        if (!response.ok) return [];
-        return await response.json();
-    } catch (e) {
-        console.error("Error leyendo directorio:", path, e);
-        return [];
-    }
-}
-
-// Función RECURSIVA para buscar todas las imágenes PNG sin importar la profundidad
-async function scanFolderRecursively(path) {
-    const contents = await fetchDirectory(path);
-    let pngFiles = [];
-
-    for (const item of contents) {
-        if (item.type === 'file' && item.name.toLowerCase().endsWith('.png')) {
-            pngFiles.push(item);
-        } else if (item.type === 'dir') {
-            // Si es una carpeta, entrar y buscar dentro de ella
-            const subFiles = await scanFolderRecursively(item.path);
-            pngFiles = pngFiles.concat(subFiles);
-        }
-    }
-
-    return pngFiles;
-}
-
 async function initCatalog() {
     try {
-        const rootContents = await fetchDirectory(BASE_FOLDER);
+        // 1. Pedir el árbol completo del repositorio en UNA SOLA petición (evita bloqueo de la API)
+        const response = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/git/trees/main?recursive=1`);
+        
+        if (!response.ok) {
+            // Intentar con rama 'master' si 'main' diera error
+            const fallbackResponse = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/git/trees/master?recursive=1`);
+            if (!fallbackResponse.ok) throw new Error('Error accediendo a la API de GitHub');
+            var data = await fallbackResponse.json();
+        } else {
+            var data = await response.json();
+        }
+
         if (loading) loading.style.display = 'none';
 
-        // Detectar carpetas principales (ej: Animes, Juegos)
-        const mainCategories = rootContents.filter(item => item.type === 'dir');
+        // 2. Filtrar solo los archivos .png dentro de la carpeta 'm/'
+        const allSkins = data.tree.filter(item => 
+            item.type === 'blob' && 
+            item.path.startsWith(`${BASE_FOLDER}/`) && 
+            item.path.toLowerCase().endsWith('.png')
+        );
 
-        for (const categoryDir of mainCategories) {
-            // Escanear recursivamente todos los PNG dentro de esta categoría
-            const allSkins = await scanFolderRecursively(categoryDir.path);
-
-            if (allSkins.length > 0) {
-                renderCategoryGroup(categoryDir.name, allSkins);
+        if (allSkins.length === 0) {
+            if (loading) {
+                loading.textContent = 'No se encontraron skins PNG en la carpeta.';
+                loading.style.display = 'block';
             }
+            return;
+        }
+
+        // 3. Agrupar las skins por Gran Categoría (el primer nivel dentro de 'm/', ej: Animes, Juegos)
+        const categories = {};
+
+        allSkins.forEach(file => {
+            const relativePath = file.path.replace(`${BASE_FOLDER}/`, '');
+            const parts = relativePath.split('/');
+            
+            // Si está dentro de una carpeta (ej: Animes/...), esa es la categoría principal.
+            // Si está suelta en m/, va a "General".
+            const mainCategory = parts.length > 1 ? parts[0] : 'General';
+
+            if (!categories[mainCategory]) {
+                categories[mainCategory] = [];
+            }
+            categories[mainCategory].push(file);
+        });
+
+        // 4. Renderizar cada Gran Categoría (Animes, Juegos, etc.)
+        for (const [categoryName, files] of Object.entries(categories)) {
+            renderCategoryGroup(categoryName, files);
         }
 
     } catch (error) {
         console.error(error);
-        if (loading) loading.textContent = 'Error al cargar el catálogo de skins.';
+        if (loading) {
+            loading.textContent = 'Error de API o límite de peticiones superado. Reintenta en unos minutos.';
+            loading.style.display = 'block';
+        }
     }
 }
 
 function renderCategoryGroup(categoryName, imageFiles) {
+    // Título de la categoría principal (Animes, Juegos, etc.)
     const mainTitle = document.createElement('h2');
     mainTitle.className = 'category-title';
     mainTitle.textContent = categoryName;
@@ -190,18 +200,27 @@ function renderCategoryGroup(categoryName, imageFiles) {
 
     imageFiles.forEach(file => {
         globalIndex++;
-        const skinName = file.name.replace(/\.png$/i, '').replace(/[-_]/g, ' ');
-        const rawUrl = file.download_url;
-        const canvasId = `skin_canvas_${globalIndex}`;
-        const selectId = `cmd_type_${globalIndex}`;
-        const btnId = `btn_copy_${globalIndex}`;
+        
+        // Extraer el nombre de la skin sin extensión
+        const pathParts = file.path.split('/');
+        const fileName = pathParts[pathParts.length - 1];
+        const skinName = fileName.replace(/\.png$/i, '').replace(/[-_]/g, ' ');
 
+        // Determinar subcategoría (obra/juego, ej: "Darling in the FranXX")
+        const subCat = pathParts.length > 3 ? pathParts[pathParts.length - 3] : (pathParts.length > 2 ? pathParts[1] : '');
+
+        // Generar la URL RAW directa de descarga/visor
+        const rawUrl = `https://raw.githubusercontent.com/${USERNAME}/${REPO}/main/${file.path}`;
+        const publicUrl = `https://${USERNAME}.github.io/${REPO}/${file.path}`;
+
+        // Detectar si es modelo Slim (Chica/Alex) o Classic (Chico/Steve)
         const pathLower = file.path.toLowerCase();
         const isSlim = pathLower.includes('chica') || pathLower.includes('slim') || pathLower.includes('alex');
         const modelType = isSlim ? 'slim' : 'classic';
 
-        const pathParts = file.path.split('/');
-        const subCat = pathParts.length > 3 ? pathParts[2] : '';
+        const canvasId = `skin_canvas_${globalIndex}`;
+        const selectId = `cmd_type_${globalIndex}`;
+        const btnId = `copy_btn_${globalIndex}`;
 
         const card = document.createElement('div');
         card.className = 'skin-card';
@@ -213,21 +232,20 @@ function renderCategoryGroup(categoryName, imageFiles) {
                 <canvas id="${canvasId}"></canvas>
             </div>
             
-            <!-- Desplegable con listener para cambiar el texto del botón -->
-            <select id="${selectId}" class="btn" style="margin-bottom: 0.5rem; text-align: center;" onchange="updateButtonText('${selectId}', '${btnId}')">
+            <select id="${selectId}" class="btn" style="margin-bottom: 0.5rem; text-align: center;" onchange="updateButtonLabel('${selectId}', '${btnId}')">
                 <option value="plugin">Plugin (/skin url)</option>
                 <option value="mod">Mod (/skin set web)</option>
                 <option value="raw">Solo URL de la imagen</option>
             </select>
 
             <div class="btn-group">
-                <button id="${btnId}" class="btn" onclick="copyCustomCommand('${rawUrl}', '${selectId}', '${modelType}', this)">Copiar Comando</button>
-                <a class="btn btn-secondary" href="${rawUrl}" download="${file.name}">Descargar</a>
+                <button id="${btnId}" class="btn" onclick="copyCustomCommand('${publicUrl}', '${selectId}', '${modelType}', this)">Copiar Comando</button>
+                <a class="btn btn-secondary" href="${rawUrl}" download="${fileName}">Descargar</a>
             </div>
         `;
         grid.appendChild(card);
 
-        // Renderizado 3D de la skin
+        // Inicializar el visor 3D
         try {
             const viewer = new skinview3d.SkinViewer({
                 canvas: document.getElementById(canvasId),
@@ -241,40 +259,40 @@ function renderCategoryGroup(categoryName, imageFiles) {
             viewer.autoRotate = true;
             viewer.autoRotateSpeed = 0.8;
         } catch (e) {
-            console.error("Error en el visor 3D para " + file.name, e);
+            console.error("Error al renderizar skin 3D:", file.path, e);
         }
     });
 }
 
-// Cambia el texto del botón dinámicamente según la opción elegida
-function updateButtonText(selectId, btnId) {
-    const select = document.getElementById(selectId);
+// Cambiar el texto del botón dinámicamente segun la opción elegida
+function updateButtonLabel(selectId, btnId) {
+    const mode = document.getElementById(selectId).value;
     const btn = document.getElementById(btnId);
-
-    if (select.value === 'raw') {
+    
+    if (mode === 'raw') {
         btn.textContent = 'Copiar URL';
     } else {
         btn.textContent = 'Copiar Comando';
     }
 }
 
-// Copia el texto adecuado e informa al usuario
+// Lógica de copiado al portapapeles
 function copyCustomCommand(url, selectId, modelType, btnElement) {
     const mode = document.getElementById(selectId).value;
     let textToCopy = url;
-    let successMsg = '¡URL copiada!';
+    let successMessage = '¡URL copiada!';
 
     if (mode === 'plugin') {
         textToCopy = `/skin url ${url}`;
-        successMsg = '¡Comando copiado!';
+        successMessage = '¡Comando copiado!';
     } else if (mode === 'mod') {
         textToCopy = `/skin set web ${modelType} "${url}"`;
-        successMsg = '¡Comando copiado!';
+        successMessage = '¡Comando copiado!';
     }
 
     navigator.clipboard.writeText(textToCopy).then(() => {
         const originalText = btnElement.textContent;
-        btnElement.textContent = successMsg;
+        btnElement.textContent = successMessage;
         btnElement.style.background = 'var(--accent-amber, #ff9900)';
         
         setTimeout(() => {
@@ -284,7 +302,7 @@ function copyCustomCommand(url, selectId, modelType, btnElement) {
     });
 }
 
-// Inicializar el catálogo
+// Arrancar la carga optimizada
 initCatalog();
     </script>
 </body>
