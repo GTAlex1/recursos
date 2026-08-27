@@ -68,12 +68,12 @@
     "name": "gojo.png"
   },
   {
-    "path": "m/Animes/La nobleza de las flores/Chico/rintaro.png",
-    "name": "rintaro.png"
-  },
-  {
     "path": "m/Animes/La nobleza de las flores/Chica/waguri.png",
     "name": "waguri.png"
+  },
+  {
+    "path": "m/Animes/La nobleza de las flores/Chica/rintaro.png",
+    "name": "rintaro.png"
   },
   {
     "path": "m/Juegos/Minecraft/Chico/creeper.png",
