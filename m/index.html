@@ -124,7 +124,7 @@ const catalogContainer = document.getElementById('catalog-container');
 const loading = document.getElementById('loading');
 
 let globalIndex = 0;
-const activeViewers = new Map(); // Para gestionar y reciclar contextos WebGL
+const activeViewers = new Map();
 
 async function initCatalog() {
     try {
@@ -148,19 +148,26 @@ async function initCatalog() {
         allSkins.forEach(file => {
             const relativePath = file.path.replace(`${BASE_FOLDER}/`, '');
             const parts = relativePath.split('/');
-            const mainCategory = parts.length > 1 ? parts[0] : 'General';
-
-            if (!categories[mainCategory]) {
-                categories[mainCategory] = [];
+            
+            // Si la ruta tiene subcarpetas (ej: Animes/Pokemon/Chico/skin.png),
+            // la categoría será "Animes - Pokemon" o el nombre de la serie/juego.
+            let categoryName = 'General';
+            if (parts.length > 2) {
+                categoryName = `${parts[0]} - ${parts[1]}`;
+            } else if (parts.length > 1) {
+                categoryName = parts[0];
             }
-            categories[mainCategory].push(file);
+
+            if (!categories[categoryName]) {
+                categories[categoryName] = [];
+            }
+            categories[categoryName].push(file);
         });
 
         for (const [categoryName, files] of Object.entries(categories)) {
             renderCategoryGroup(categoryName, files);
         }
 
-        // Configurar el Observer para cargar 3D solo cuando la skin es visible
         setupIntersectionObserver();
 
     } catch (error) {
@@ -189,9 +196,6 @@ function renderCategoryGroup(categoryName, imageFiles) {
         const fileName = file.name || pathParts[pathParts.length - 1];
         const skinName = fileName.replace(/\.png$/i, '').replace(/[-_]/g, ' ');
 
-        const subCat = pathParts.length > 3 ? pathParts[pathParts.length - 3] : (pathParts.length > 2 ? pathParts[1] : '');
-
-        // Encodeamos los componentes del Path para soportar caracteres como '!' o espacios
         const safePath = file.path.split('/').map(segment => encodeURIComponent(segment)).join('/');
         
         const rawUrl = `https://raw.githubusercontent.com/${USERNAME}/${REPO}/main/${safePath}`;
@@ -201,7 +205,7 @@ function renderCategoryGroup(categoryName, imageFiles) {
         const isSlim = pathLower.includes('chica') || pathLower.includes('slim') || pathLower.includes('alex');
         const modelType = isSlim ? 'slim' : 'classic';
 
-        const canvasId = `skin_canvas_${globalIndex}`;
+        const containerId = `container_${globalIndex}`;
         const selectId = `cmd_type_${globalIndex}`;
         const btnId = `copy_btn_${globalIndex}`;
 
@@ -209,10 +213,10 @@ function renderCategoryGroup(categoryName, imageFiles) {
         card.className = 'skin-card';
         card.innerHTML = `
             <h3>${skinName}</h3>
-            ${subCat ? `<span style="font-size: 0.75rem; color: var(--accent-amber, #ff9900); margin-top: -0.4rem; margin-bottom: 0.5rem;">${subCat} (${modelType})</span>` : ''}
+            <span style="font-size: 0.75rem; color: var(--accent-amber, #ff9900); margin-top: -0.4rem; margin-bottom: 0.5rem;">(${modelType})</span>
             
-            <div class="canvas-container" data-skin-url="${rawUrl}" data-model="${modelType}" data-canvas-id="${canvasId}">
-                <canvas id="${canvasId}"></canvas>
+            <div class="canvas-container" id="${containerId}" data-skin-url="${rawUrl}" data-model="${modelType}">
+                <!-- Canvas generado dinámicamente -->
             </div>
             
             <select id="${selectId}" class="btn" style="margin-bottom: 0.5rem; text-align: center;" onchange="updateButtonLabel('${selectId}', '${btnId}')">
@@ -230,21 +234,24 @@ function renderCategoryGroup(categoryName, imageFiles) {
     });
 }
 
-// Carga perezosa (Lazy Loading) de WebGL para evitar 'Context Lost'
 function setupIntersectionObserver() {
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             const container = entry.target;
-            const canvasId = container.dataset.canvasId;
+            const containerId = container.id;
             const skinUrl = container.dataset.skinUrl;
             const modelType = container.dataset.model;
 
             if (entry.isIntersecting) {
-                // Si la carta entra en pantalla y no tiene visor, crearlo
-                if (!activeViewers.has(canvasId)) {
+                if (!activeViewers.has(containerId)) {
                     try {
+                        // Recrear canvas limpio para evitar fallos de renderizado al reentrar
+                        container.innerHTML = '';
+                        const canvas = document.createElement('canvas');
+                        container.appendChild(canvas);
+
                         const viewer = new skinview3d.SkinViewer({
-                            canvas: document.getElementById(canvasId),
+                            canvas: canvas,
                             width: 180,
                             height: 220,
                             skin: skinUrl,
@@ -255,21 +262,21 @@ function setupIntersectionObserver() {
                         viewer.autoRotate = true;
                         viewer.autoRotateSpeed = 0.8;
                         
-                        activeViewers.set(canvasId, viewer);
+                        activeViewers.set(containerId, viewer);
                     } catch (e) {
-                        console.error("Error al renderizar skin 3D:", canvasId, e);
+                        console.error("Error al renderizar skin 3D:", containerId, e);
                     }
                 }
             } else {
-                // Si la carta sale de pantalla, destruir el visor para liberar memoria WebGL
-                if (activeViewers.has(canvasId)) {
-                    const viewer = activeViewers.get(canvasId);
+                if (activeViewers.has(containerId)) {
+                    const viewer = activeViewers.get(containerId);
                     viewer.dispose();
-                    activeViewers.delete(canvasId);
+                    activeViewers.delete(containerId);
+                    container.innerHTML = ''; // Limpiar el DOM al salir de pantalla
                 }
             }
         });
-    }, { rootMargin: '100px 0px' });
+    }, { rootMargin: '150px 0px' });
 
     document.querySelectorAll('.canvas-container').forEach(el => observer.observe(el));
 }
