@@ -279,14 +279,6 @@ document.addEventListener('click', () => {
     document.querySelectorAll('.copy-dropdown').forEach(d => d.style.display = 'none');
 });
 
-        setTimeout(() => {
-            optionBtn.textContent = originalText;
-            optionBtn.style.color = '#fff';
-            optionBtn.parentElement.style.display = 'none';
-        }, 800);
-    });
-}
-
 // Cierre automático al hacer clic fuera
 document.addEventListener('click', () => {
     document.querySelectorAll('.copy-dropdown').forEach(d => d.style.display = 'none');
