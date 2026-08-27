@@ -1,177 +1,71 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Skins Repo - Kazus</title>
-    <link rel="stylesheet" href="../../style.css">
-    <script src="https://bs-community.github.io/skinview3d/js/skinview3d.bundle.js"></script>
-    <style>
-        .category-title {
-            font-size: 1.4rem;
-            color: var(--accent-amber, #ff9900);
-            border-bottom: 2px solid var(--card-border, rgba(255, 100, 0, 0.2));
-            padding-bottom: 0.4rem;
-            margin: 2.5rem 0 1rem 0;
-            text-align: left;
-            width: 100%;
-            max-width: 1100px;
-            text-transform: capitalize;
-            text-shadow: 0 0 10px rgba(255, 153, 0, 0.3);
+const USERNAME = 'gtalex1';
+const REPO = 'recursos';
+const BASE_FOLDER = 'm';
+
+const catalogContainer = document.getElementById('catalog-container');
+const loading = document.getElementById('loading');
+
+let globalIndex = 0;
+
+// Función para consultar la API de GitHub
+async function fetchDirectory(path) {
+    try {
+        const response = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${path}`);
+        if (!response.ok) return [];
+        return await response.json();
+    } catch (e) {
+        console.error("Error leyendo directorio:", path, e);
+        return [];
+    }
+}
+
+// Función RECURSIVA para buscar todas las imágenes PNG sin importar la profundidad
+async function scanFolderRecursively(path) {
+    const contents = await fetchDirectory(path);
+    let pngFiles = [];
+
+    for (const item of contents) {
+        if (item.type === 'file' && item.name.toLowerCase().endsWith('.png')) {
+            pngFiles.push(item);
+        } else if (item.type === 'dir') {
+            // Si es una carpeta, entrar y buscar dentro de ella
+            const subFiles = await scanFolderRecursively(item.path);
+            pngFiles = pngFiles.concat(subFiles);
         }
+    }
 
-        .skins-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            gap: 1.5rem;
-            width: 100%;
-            max-width: 1100px;
-            margin-bottom: 1.5rem;
-        }
+    return pngFiles;
+}
 
-        .skin-card {
-            background: var(--card-bg, rgba(255, 69, 0, 0.04));
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid var(--card-border, rgba(255, 100, 0, 0.15));
-            border-radius: 16px;
-            padding: 1.2rem;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            transition: all 0.3s ease;
-        }
+async function initCatalog() {
+    try {
+        const rootContents = await fetchDirectory(BASE_FOLDER);
+        if (loading) loading.style.display = 'none';
 
-        .skin-card:hover {
-            transform: translateY(-4px);
-            border-color: var(--accent-fire, #ff4500);
-            box-shadow: 0 10px 25px -5px rgba(255, 69, 0, 0.4);
-        }
+        // Detectar carpetas principales (ej: Animes, Juegos)
+        const mainCategories = rootContents.filter(item => item.type === 'dir');
 
-        .skin-card h3 {
-            font-size: 1rem;
-            color: var(--text-main, #fff5f0);
-            margin-bottom: 0.8rem;
-            text-transform: capitalize;
-            font-family: 'JetBrains Mono', monospace;
-        }
+        for (const categoryDir of mainCategories) {
+            // Escanear recursivamente todos los PNG dentro de esta categoría
+            const allSkins = await scanFolderRecursively(categoryDir.path);
 
-        .canvas-container {
-            width: 180px;
-            height: 220px;
-            margin-bottom: 1rem;
-            cursor: grab;
-        }
-
-        .btn-group {
-            display: flex;
-            gap: 0.5rem;
-            width: 100%;
-        }
-
-        .btn {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--card-border, rgba(255, 100, 0, 0.15));
-            color: var(--text-main, #fff5f0);
-            padding: 0.5rem 0.2rem;
-            border-radius: 8px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            text-align: center;
-            transition: all 0.2s ease;
-        }
-
-        .btn:hover {
-            background: var(--accent-fire, #ff4500);
-            border-color: var(--accent-fire, #ff4500);
-            color: #fff;
-            box-shadow: 0 0 10px rgba(255, 69, 0, 0.5);
-        }
-
-        .btn-secondary:hover {
-            background: var(--accent-amber, #ff9900);
-            border-color: var(--accent-amber, #ff9900);
-        }
-
-        #loading {
-            color: var(--accent-amber, #ff9900);
-            font-family: 'JetBrains Mono', monospace;
-            margin: 2rem 0;
-        }
-    </style>
-</head>
-<body>
-    <header>
-        <h1>Catálogo de Skins</h1>
-    </header>
-
-    <div id="loading">Cargando categorías y skins...</div>
-    <div id="catalog-container"></div>
-
-    <footer>
-        <p>Hecho por <strong>Kazus Suzak</strong> &copy;</p>
-    </footer>
-
-    <script>
-        const USERNAME = 'gtalex1';
-        const REPO = 'recursos';
-        const BASE_FOLDER = 'm';
-
-        const catalogContainer = document.getElementById('catalog-container');
-        const loading = document.getElementById('loading');
-
-        let globalIndex = 0; // Para dar un ID único a cada canvas
-
-        async function fetchDirectory(path) {
-            const response = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${path}`);
-            if (!response.ok) return [];
-            return await response.json();
-        }
-
-        async function initCatalog() {
-            try {
-                const rootContents = await fetchDirectory(BASE_FOLDER);
-                loading.style.display = 'none';
-
-                if (rootContents.length === 0) {
-                    loading.textContent = 'No se encontraron archivos en la carpeta.';
-                    loading.style.display = 'block';
-                    return;
-                }
-
-                // Separa los elementos en carpetas (categorías) e imágenes sueltas
-                const directories = rootContents.filter(item => item.type === 'dir');
-                const rootImages = rootContents.filter(item => item.type === 'file' && item.name.endsWith('.png'));
-
-                // 1. Procesar carpetas como Secciones
-                for (const dir of directories) {
-                    const dirContents = await fetchDirectory(dir.path);
-                    const images = dirContents.filter(item => item.name.endsWith('.png'));
-
-                    if (images.length > 0) {
-                        createCategorySection(dir.name, images, dir.path);
-                    }
-                }
-
-                // 2. Si hay imágenes sueltas en la raíz, ponerlas al final bajo "Otros / General"
-                if (rootImages.length > 0) {
-                    createCategorySection('General', rootImages, BASE_FOLDER);
-                }
-
-            } catch (error) {
-                console.error(error);
-                loading.textContent = 'Error al cargar el catálogo de skins.';
+            if (allSkins.length > 0) {
+                renderCategoryGroup(categoryDir.name, allSkins);
             }
         }
 
-        function createCategorySection(categoryName, imageFiles, folderPath) {
-    const title = document.createElement('h2');
-    title.className = 'category-title';
-    title.textContent = categoryName;
-    catalogContainer.appendChild(title);
+    } catch (error) {
+        console.error(error);
+        if (loading) loading.textContent = 'Error al cargar el catálogo de skins.';
+    }
+}
+
+function renderCategoryGroup(categoryName, imageFiles) {
+    // Título principal de la categoría (Animes, Juegos, etc.)
+    const mainTitle = document.createElement('h2');
+    mainTitle.className = 'category-title';
+    mainTitle.textContent = categoryName;
+    catalogContainer.appendChild(mainTitle);
 
     const grid = document.createElement('div');
     grid.className = 'skins-grid';
@@ -184,19 +78,25 @@
         const canvasId = `skin_canvas_${globalIndex}`;
         const selectId = `cmd_type_${globalIndex}`;
 
-        // Detectar si la skin está en subcarpeta Slim o Classic según la ruta
-        const isSlim = file.path.toLowerCase().includes('slim') || file.path.toLowerCase().includes('alex');
+        // Detectar si la ruta contiene Chica, Slim o Alex para definir el modelo 3D
+        const pathLower = file.path.toLowerCase();
+        const isSlim = pathLower.includes('chica') || pathLower.includes('slim') || pathLower.includes('alex');
         const modelType = isSlim ? 'slim' : 'classic';
+
+        // Extraer subcategoría (ej: "Darling in the FranXX") para mostrarlo como etiqueta opcional
+        const pathParts = file.path.split('/');
+        const subCat = pathParts.length > 3 ? pathParts[2] : '';
 
         const card = document.createElement('div');
         card.className = 'skin-card';
         card.innerHTML = `
-            <h3>${skinName} <span style="font-size: 0.7rem; opacity: 0.6;">(${modelType})</span></h3>
+            <h3>${skinName}</h3>
+            ${subCat ? `<span style="font-size: 0.75rem; color: var(--accent-amber); margin-top: -0.4rem; margin-bottom: 0.5rem;">${subCat} (${modelType})</span>` : ''}
+            
             <div class="canvas-container">
                 <canvas id="${canvasId}"></canvas>
             </div>
             
-            <!-- Selector de formato de comando -->
             <select id="${selectId}" class="btn" style="margin-bottom: 0.5rem; text-align: center;">
                 <option value="plugin">Plugin (/skin url)</option>
                 <option value="mod">Mod (/skin set web)</option>
@@ -210,7 +110,7 @@
         `;
         grid.appendChild(card);
 
-        // Inicializar visor 3D indicando el modelo (slim / classic)
+        // Renderizado 3D de la skin
         try {
             const viewer = new skinview3d.SkinViewer({
                 canvas: document.getElementById(canvasId),
@@ -222,13 +122,13 @@
             viewer.animation = new skinview3d.WalkingAnimation();
             viewer.animation.speed = 0.5;
             viewer.autoRotate = true;
+            viewer.autoRotateSpeed = 0.8;
         } catch (e) {
-            console.error(e);
+            console.error("Error al cargar visor 3D para " + file.name, e);
         }
     });
 }
 
-// Función de copiado con la sintaxis del comando
 function copyCustomCommand(url, selectId, modelType, btnElement) {
     const mode = document.getElementById(selectId).value;
     let textToCopy = url;
@@ -251,20 +151,5 @@ function copyCustomCommand(url, selectId, modelType, btnElement) {
     });
 }
 
-        function copyToClipboard(url, btnElement) {
-            navigator.clipboard.writeText(url).then(() => {
-                const originalText = btnElement.textContent;
-                btnElement.textContent = '¡Copiado!';
-                btnElement.style.background = 'var(--accent-amber, #ff9900)';
-                
-                setTimeout(() => {
-                    btnElement.textContent = originalText;
-                    btnElement.style.background = '';
-                }, 1800);
-            });
-        }
-
-        initCatalog();
-    </script>
-</body>
-</html>
+// Inicializar el catálogo
+initCatalog();
