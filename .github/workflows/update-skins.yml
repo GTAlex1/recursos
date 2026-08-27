@@ -21,29 +21,31 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Generar skins.json
+      - name: Generar m/skins.json
         run: |
           python -c "
           import os, json
 
           base_folder = 'm'
+          output_file = 'm/skins.json'
           skins_list = []
 
           for root, dirs, files in os.walk(base_folder):
               for file in files:
+                  # Ignorar el propio skins.json si existe en la carpeta
                   if file.lower().endswith('.png'):
                       full_path = os.path.join(root, file).replace('\\\\', '/')
                       skins_list.append({'path': full_path, 'name': file})
 
-          with open('skins.json', 'w', encoding='utf-8') as f:
+          with open(output_file, 'w', encoding='utf-8') as f:
               json.dump(skins_list, f, indent=2, ensure_ascii=False)
 
-          print(f'Indexadas {len(skins_list)} skins.')
+          print(f'Indexadas {len(skins_list)} skins en {output_file}.')
           "
 
-      - name: Guardar skins.json en el repositorio
+      - name: Guardar m/skins.json en el repositorio
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add skins.json
-          git diff --quiet && git diff --staged --quiet || (git commit -m "auto: actualizar skins.json" && git push)
+          git add m/skins.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "auto: actualizar m/skins.json" && git push)
