@@ -1,4 +1,122 @@
-const USERNAME = 'gtalex1';
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skins Repo - Kazus</title>
+    <link rel="stylesheet" href="../../style.css">
+    <script src="https://bs-community.github.io/skinview3d/js/skinview3d.bundle.js"></script>
+    <style>
+        .category-title {
+            font-size: 1.4rem;
+            color: var(--accent-amber, #ff9900);
+            border-bottom: 2px solid var(--card-border, rgba(255, 100, 0, 0.2));
+            padding-bottom: 0.4rem;
+            margin: 2.5rem 0 1rem 0;
+            text-align: left;
+            width: 100%;
+            max-width: 1100px;
+            text-transform: capitalize;
+            text-shadow: 0 0 10px rgba(255, 153, 0, 0.3);
+        }
+
+        .skins-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 1.5rem;
+            width: 100%;
+            max-width: 1100px;
+            margin-bottom: 1.5rem;
+        }
+
+        .skin-card {
+            background: var(--card-bg, rgba(255, 69, 0, 0.04));
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border, rgba(255, 100, 0, 0.15));
+            border-radius: 16px;
+            padding: 1.2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .skin-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-fire, #ff4500);
+            box-shadow: 0 10px 25px -5px rgba(255, 69, 0, 0.4);
+        }
+
+        .skin-card h3 {
+            font-size: 1rem;
+            color: var(--text-main, #fff5f0);
+            margin-bottom: 0.8rem;
+            text-transform: capitalize;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .canvas-container {
+            width: 180px;
+            height: 220px;
+            margin-bottom: 1rem;
+            cursor: grab;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.5rem;
+            width: 100%;
+        }
+
+        .btn {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border, rgba(255, 100, 0, 0.15));
+            color: var(--text-main, #fff5f0);
+            padding: 0.5rem 0.2rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            background: var(--accent-fire, #ff4500);
+            border-color: var(--accent-fire, #ff4500);
+            color: #fff;
+            box-shadow: 0 0 10px rgba(255, 69, 0, 0.5);
+        }
+
+        .btn-secondary:hover {
+            background: var(--accent-amber, #ff9900);
+            border-color: var(--accent-amber, #ff9900);
+        }
+
+        #loading {
+            color: var(--accent-amber, #ff9900);
+            font-family: 'JetBrains Mono', monospace;
+            margin: 2rem 0;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Catálogo de Skins</h1>
+    </header>
+
+    <div id="loading">Cargando categorías y skins...</div>
+    <div id="catalog-container"></div>
+
+    <footer>
+        <p>Hecho por <strong>Kazus Suzak</strong> &copy;</p>
+    </footer>
+
+    <script>
+        const USERNAME = 'gtalex1';
 const REPO = 'recursos';
 const BASE_FOLDER = 'm';
 
@@ -153,3 +271,6 @@ function copyCustomCommand(url, selectId, modelType, btnElement) {
 
 // Inicializar el catálogo
 initCatalog();
+    </script>
+</body>
+</html>
