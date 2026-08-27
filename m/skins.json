@@ -20,15 +20,15 @@
     "name": "umbreon.png"
   },
   {
-    "path": "m/Animes/Pokemon/Chico/charmander.png",
+    "path": "m/Animes/Pokemon/Chica/charmander.png",
     "name": "charmander.png"
   },
   {
-    "path": "m/Animes/Solo Leveling/Chico/sung.png",
+    "path": "m/Animes/Solo Leveling/Chica/sung.png",
     "name": "sung.png"
   },
   {
-    "path": "m/Animes/Solo Leveling/Chico/jinwoo.png",
+    "path": "m/Animes/Solo Leveling/Chica/jinwoo.png",
     "name": "jinwoo.png"
   },
   {
@@ -40,7 +40,7 @@
     "name": "maomao.png"
   },
   {
-    "path": "m/Animes/Darling in the FranXX/Chico/hiro.png",
+    "path": "m/Animes/Darling in the FranXX/Chica/hiro.png",
     "name": "hiro.png"
   },
   {
@@ -48,12 +48,12 @@
     "name": "zerotwo.png"
   },
   {
-    "path": "m/Animes/Sword Art Online/Chico/kirito.png",
-    "name": "kirito.png"
-  },
-  {
     "path": "m/Animes/Sword Art Online/Chica/asuna.png",
     "name": "asuna.png"
+  },
+  {
+    "path": "m/Animes/Sword Art Online/Chica/kirito.png",
+    "name": "kirito.png"
   },
   {
     "path": "m/Animes/Los siete pecados capitales/Chico/meliodas.png",
