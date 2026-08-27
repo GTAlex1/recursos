@@ -179,7 +179,6 @@ async function initCatalog() {
 }
 
 function renderCategoryGroup(categoryName, imageFiles) {
-    // Título principal de la categoría (Animes, Juegos, etc.)
     const mainTitle = document.createElement('h2');
     mainTitle.className = 'category-title';
     mainTitle.textContent = categoryName;
@@ -195,13 +194,12 @@ function renderCategoryGroup(categoryName, imageFiles) {
         const rawUrl = file.download_url;
         const canvasId = `skin_canvas_${globalIndex}`;
         const selectId = `cmd_type_${globalIndex}`;
+        const btnId = `btn_copy_${globalIndex}`;
 
-        // Detectar si la ruta contiene Chica, Slim o Alex para definir el modelo 3D
         const pathLower = file.path.toLowerCase();
         const isSlim = pathLower.includes('chica') || pathLower.includes('slim') || pathLower.includes('alex');
         const modelType = isSlim ? 'slim' : 'classic';
 
-        // Extraer subcategoría (ej: "Darling in the FranXX") para mostrarlo como etiqueta opcional
         const pathParts = file.path.split('/');
         const subCat = pathParts.length > 3 ? pathParts[2] : '';
 
@@ -215,14 +213,15 @@ function renderCategoryGroup(categoryName, imageFiles) {
                 <canvas id="${canvasId}"></canvas>
             </div>
             
-            <select id="${selectId}" class="btn" style="margin-bottom: 0.5rem; text-align: center;">
+            <!-- Desplegable con listener para cambiar el texto del botón -->
+            <select id="${selectId}" class="btn" style="margin-bottom: 0.5rem; text-align: center;" onchange="updateButtonText('${selectId}', '${btnId}')">
                 <option value="plugin">Plugin (/skin url)</option>
                 <option value="mod">Mod (/skin set web)</option>
-                <option value="raw">Solo URL del PNG</option>
+                <option value="raw">Solo URL de la imagen</option>
             </select>
 
             <div class="btn-group">
-                <button class="btn" onclick="copyCustomCommand('${rawUrl}', '${selectId}', '${modelType}', this)">Copiar Comando</button>
+                <button id="${btnId}" class="btn" onclick="copyCustomCommand('${rawUrl}', '${selectId}', '${modelType}', this)">Copiar Comando</button>
                 <a class="btn btn-secondary" href="${rawUrl}" download="${file.name}">Descargar</a>
             </div>
         `;
@@ -242,24 +241,40 @@ function renderCategoryGroup(categoryName, imageFiles) {
             viewer.autoRotate = true;
             viewer.autoRotateSpeed = 0.8;
         } catch (e) {
-            console.error("Error al cargar visor 3D para " + file.name, e);
+            console.error("Error en el visor 3D para " + file.name, e);
         }
     });
 }
 
+// Cambia el texto del botón dinámicamente según la opción elegida
+function updateButtonText(selectId, btnId) {
+    const select = document.getElementById(selectId);
+    const btn = document.getElementById(btnId);
+
+    if (select.value === 'raw') {
+        btn.textContent = 'Copiar URL';
+    } else {
+        btn.textContent = 'Copiar Comando';
+    }
+}
+
+// Copia el texto adecuado e informa al usuario
 function copyCustomCommand(url, selectId, modelType, btnElement) {
     const mode = document.getElementById(selectId).value;
     let textToCopy = url;
+    let successMsg = '¡URL copiada!';
 
     if (mode === 'plugin') {
         textToCopy = `/skin url ${url}`;
+        successMsg = '¡Comando copiado!';
     } else if (mode === 'mod') {
         textToCopy = `/skin set web ${modelType} "${url}"`;
+        successMsg = '¡Comando copiado!';
     }
 
     navigator.clipboard.writeText(textToCopy).then(() => {
         const originalText = btnElement.textContent;
-        btnElement.textContent = '¡Comando copiado!';
+        btnElement.textContent = successMsg;
         btnElement.style.background = 'var(--accent-amber, #ff9900)';
         
         setTimeout(() => {
