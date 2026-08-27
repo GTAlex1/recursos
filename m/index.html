@@ -237,6 +237,8 @@ function renderSubCategoryGroup(subCategoryName, imageFiles) {
 
 function toggleDropdown(dropdownId, event) {
     event.stopPropagation();
+    
+    // Cerrar cualquier otro desplegable abierto
     document.querySelectorAll('.copy-dropdown').forEach(d => {
         if (d.id !== dropdownId) d.style.display = 'none';
     });
@@ -245,11 +247,37 @@ function toggleDropdown(dropdownId, event) {
     dropdown.style.display = (dropdown.style.display === 'block') ? 'none' : 'block';
 }
 
-function copyAndClose(text, optionBtn) {
+function copyAndClose(text, optionBtn, dropdownId) {
+    // 1. Copiar al portapapeles
     navigator.clipboard.writeText(text).then(() => {
-        const originalText = optionBtn.textContent;
-        optionBtn.textContent = '¡Copiado!';
-        optionBtn.style.color = 'var(--accent-amber, #ff9900)';
+        const dropdown = document.getElementById(dropdownId);
+        const parentGroup = dropdown.parentElement;
+        const mainCopyBtn = parentGroup.querySelector('button');
+
+        // 2. Cerrar el menú desplegable inmediatamente
+        dropdown.style.display = 'none';
+
+        // 3. Dar feedback visual en el botón principal
+        const originalText = mainCopyBtn.textContent;
+        mainCopyBtn.textContent = '¡Copiado! ✓';
+        mainCopyBtn.style.background = 'var(--accent-amber, #ff9900)';
+        mainCopyBtn.style.color = '#000';
+
+        // 4. Restaurar el botón a su estado original a los 1.5 segundos
+        setTimeout(() => {
+            mainCopyBtn.textContent = originalText;
+            mainCopyBtn.style.background = '';
+            mainCopyBtn.style.color = '';
+        }, 1500);
+    }).catch(err => {
+        console.error('Error al copiar: ', err);
+    });
+}
+
+// Cierre automático al hacer clic en cualquier parte fuera del menú
+document.addEventListener('click', () => {
+    document.querySelectorAll('.copy-dropdown').forEach(d => d.style.display = 'none');
+});
 
         setTimeout(() => {
             optionBtn.textContent = originalText;
